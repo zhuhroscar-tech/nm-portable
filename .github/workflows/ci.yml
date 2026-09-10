@@ -42,7 +42,7 @@ jobs:
           nm-portable audit /tmp/sample-connections --json > /tmp/audit.json || true
           python -m json.tool < /tmp/audit.json > /dev/null
           nm-portable fix /tmp/sample-connections --out /tmp/portable-out
-          grep -L "mac-address" /tmp/portable-out/eth0.nmconnection
+          ! grep -q "mac-address" /tmp/portable-out/eth0.nmconnection
 
   build-artifact:
     name: Build .pyz + sdist/wheel and smoke-test on Linux

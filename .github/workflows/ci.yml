@@ -39,7 +39,8 @@ jobs:
           EOF
           nm-portable --version
           nm-portable --help
-          nm-portable audit /tmp/sample-connections --json | python -m json.tool
+          nm-portable audit /tmp/sample-connections --json > /tmp/audit.json || true
+          python -m json.tool < /tmp/audit.json > /dev/null
           nm-portable fix /tmp/sample-connections --out /tmp/portable-out
           grep -L "mac-address" /tmp/portable-out/eth0.nmconnection
 

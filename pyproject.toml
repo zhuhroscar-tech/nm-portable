@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nm-portable"
+version = "0.1.0"
+description = "Find and fix NetworkManager .nmconnection profiles pinned to specific hardware, so they can be safely copied to a different machine."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "zhuhroscar-tech"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "License :: OSI Approved :: MIT License",
+]
+
+[project.scripts]
+nm-portable = "nm_portable.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

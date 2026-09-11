@@ -39,6 +39,8 @@ existing tool addresses directly.
 
 ## What this does
 
+![nm-portable example output](docs/images/example-output.png)
+
 ```
 $ nm-portable audit /etc/NetworkManager/system-connections
 

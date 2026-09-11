@@ -1,7 +1,22 @@
 # nm-portable
 
+[![CI](https://github.com/zhuhroscar-tech/nm-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/zhuhroscar-tech/nm-portable/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zhuhroscar-tech/nm-portable?include_prereleases&label=release)](https://github.com/zhuhroscar-tech/nm-portable/releases)
+![Linux](https://img.shields.io/badge/platform-Linux-111111?logo=linux)
+
 Find and fix NetworkManager `.nmconnection` profiles that are pinned to
 specific hardware, so they can be safely copied to a different machine.
+
+## Simple explanation
+
+When you copy a saved Wi-Fi/network setup from one Linux computer to
+another — reimaging a laptop, moving to new hardware, restoring from a
+backup — the network connection often silently refuses to turn on,
+because the saved file is locked to the old machine's unique hardware
+ID. This tool scans your saved network profiles, flags anything tied
+to specific hardware, and can write out a cleaned-up copy that's safe
+to use on the new machine. It never touches your original files or
+restarts networking itself — you copy the fixed files over yourself.
 
 ## The problem
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import __version__
 from .core import audit_directory, audit_profile, write_portable_copy
+from .style import resolve_style, status_headline
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit = sub.add_parser("audit", help="Report portability blockers, change nothing.")
     audit.add_argument("path", type=Path, help="A .nmconnection file or a directory containing them.")
     audit.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    audit.add_argument("--no-color", action="store_true", help="Disable colored output.")
 
     fix = sub.add_parser("fix", help="Write portable copies with hardware pins removed.")
     fix.add_argument("path", type=Path, help="A .nmconnection file or a directory containing them.")
@@ -34,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also reset static IPv4/IPv6 configuration to 'auto' (off by default).",
     )
     fix.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    fix.add_argument("--no-color", action="store_true", help="Disable colored output.")
 
     return p
 
@@ -60,15 +63,16 @@ def _cmd_audit(args) -> int:
         ]
         print(json.dumps(payload, indent=2))
     else:
+        style = resolve_style(no_color_flag=args.no_color)
         if not reports:
             print(f"No .nmconnection files found at {args.path}")
         for r in reports:
             print(f"\n{r.path}")
             if not r.findings:
-                print("  [ok] no portability blockers found")
+                print(f"  {status_headline(style, 'ok', 'no portability blockers found')}")
             for f in r.findings:
-                tag = "[warn]" if f.level == "warn" else "[info]"
-                print(f"  {tag} {f.field}: {f.message}")
+                level = "warn" if f.level == "warn" else "info"
+                print(f"  {status_headline(style, level, f'{f.field}: {f.message}')}")
 
     return 1 if any_blockers else 0
 

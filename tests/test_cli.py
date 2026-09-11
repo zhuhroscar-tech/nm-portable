@@ -83,3 +83,71 @@ def test_version_exits_zero(capsys):
         main(["--version"])
     assert exc_info.value.code == 0
     assert "nm-portable" in capsys.readouterr().out
+
+
+def test_audit_single_file_path_not_directory(tmp_path, capsys):
+    """_collect_paths must accept a single file path, not just a directory."""
+    f = _write(tmp_path, "solo.nmconnection", SAMPLE_WIFI)
+    rc = main(["audit", str(f)])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert str(f) in out
+    assert "mac-address" in out
+
+
+def test_audit_clean_profile_prints_ok_headline(tmp_path, capsys):
+    """A profile with zero findings must hit the 'no portability blockers' branch."""
+    clean = """[connection]
+id=CleanProfile
+uuid=be1282f3-d98b-3db6-9c1f-0cd80398f4f6
+type=wifi
+
+[wifi]
+mode=infrastructure
+ssid=CleanWifi
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+"""
+    _write(tmp_path, "clean.nmconnection", clean)
+    rc = main(["audit", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "no portability blockers found" in out
+
+
+def test_fix_empty_dir_reports_no_files_found(tmp_path, capsys):
+    """fix on a directory with no .nmconnection files must hit the empty-results branch."""
+    out_dir = tmp_path / "out"
+    rc = main(["fix", str(tmp_path), "--out", str(out_dir)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "No .nmconnection files found" in out
+
+
+def test_fix_no_changes_needed_text_branch(tmp_path, capsys):
+    """A profile needing zero changes must print the '(no changes needed)' line."""
+    clean = """[connection]
+id=CleanProfile
+uuid=be1282f3-d98b-3db6-9c1f-0cd80398f4f6
+type=wifi
+
+[wifi]
+mode=infrastructure
+ssid=CleanWifi
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+"""
+    _write(tmp_path, "clean.nmconnection", clean)
+    out_dir = tmp_path / "out"
+    rc = main(["fix", str(tmp_path), "--out", str(out_dir)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "(no changes needed)" in out

@@ -179,3 +179,23 @@ def test_write_portable_copy_sets_restrictive_permissions(tmp_path):
     dest, _ = write_portable_copy(src, out_dir)
     mode = dest.stat().st_mode & 0o777
     assert mode == 0o600
+
+
+def test_write_portable_copy_survives_chmod_failure(tmp_path, monkeypatch):
+    """chmod can legitimately fail (e.g. exotic filesystems, some containers);
+    write_portable_copy must swallow OSError there and still return the
+    written file rather than crashing the whole audit/fix run."""
+    import pathlib
+
+    src = _write(tmp_path, "wifi.nmconnection", SAMPLE_WIFI)
+    out_dir = tmp_path / "out"
+
+    def _boom(self, mode):
+        raise OSError("chmod not supported on this filesystem")
+
+    monkeypatch.setattr(pathlib.Path, "chmod", _boom)
+    dest, changes = write_portable_copy(src, out_dir)
+    assert dest.exists()
+    assert changes
+    # The file content was still written correctly despite the chmod failure.
+    assert "mac-address" not in dest.read_text()

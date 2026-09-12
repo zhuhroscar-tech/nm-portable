@@ -65,14 +65,20 @@ class Finding:
     message: str
 
 
+class ProfileUnreadable(RuntimeError):
+    """Raised when an .nmconnection file cannot be read or parsed at all."""
+
+
 @dataclass
 class ProfileReport:
     path: Path
     findings: list = field(default_factory=list)
+    readable: bool = True
+    unreadable_reason: Optional[str] = None
 
     @property
     def has_portability_blockers(self) -> bool:
-        return any(f.level == "warn" for f in self.findings)
+        return any(f.level == "warn" for f in self.findings) or not self.readable
 
 
 def parse_keyfile(path: Path) -> configparser.ConfigParser:
@@ -83,16 +89,45 @@ def parse_keyfile(path: Path) -> configparser.ConfigParser:
     like ``address1=``/``address2=`` (already unique key names, so no
     special handling needed) and is case-sensitive (unlike configparser's
     default lower-casing of keys) -- both handled by the settings below.
+
+    Raises ``ProfileUnreadable`` when the file cannot actually be opened
+    (e.g. permission denied -- real .nmconnection files are commonly
+    root-owned and mode 0600) or fails to parse as valid key-file syntax.
+    ``configparser.ConfigParser.read()`` silently swallows both cases
+    (its return value is simply the list of files it *did* manage to
+    read, which is empty) rather than raising, so callers must check
+    that return value explicitly instead of trusting a bare read() call.
     """
     cp = configparser.ConfigParser(strict=False, interpolation=None)
     cp.optionxform = str  # preserve case; NM keys are case-sensitive
-    cp.read(path, encoding="utf-8")
+    try:
+        parsed = cp.read(path, encoding="utf-8")
+    except configparser.Error as exc:
+        raise ProfileUnreadable(f"failed to parse {path}: {exc}") from exc
+    if not parsed:
+        # cp.read() couldn't open the file at all (missing, permission
+        # denied, not a regular file, etc). Distinguish "genuinely does
+        # not exist" from "exists but could not be read" for a clearer
+        # message, since the latter (permission denied) is the common
+        # real-world case for root-owned connection profiles.
+        if path.exists():
+            raise ProfileUnreadable(
+                f"{path} exists but could not be opened/read (permission denied?)"
+            )
+        raise ProfileUnreadable(f"{path} does not exist or is not accessible")
     return cp
 
 
 def audit_profile(path: Path) -> ProfileReport:
     """Inspect one .nmconnection file for portability blockers."""
-    cp = parse_keyfile(path)
+    try:
+        cp = parse_keyfile(path)
+    except ProfileUnreadable as exc:
+        # A file we cannot read must NEVER be reported as "no portability
+        # blockers found" -- that would tell the user a profile is safe
+        # to copy when it was never actually inspected at all. Report an
+        # explicit unreadable/unverified state instead of a false "clean".
+        return ProfileReport(path=path, findings=[], readable=False, unreadable_reason=str(exc))
     findings: list = []
 
     for section in cp.sections():

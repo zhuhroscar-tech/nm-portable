@@ -51,8 +51,56 @@ def test_audit_json_output(tmp_path, capsys):
 
 
 def test_audit_clean_dir_returns_zero(tmp_path, capsys):
+    p = _write(tmp_path, "clean.nmconnection", "[connection]\nid=x\n\n[ipv4]\nmethod=auto\n")
     rc = main(["audit", str(tmp_path)])
     assert rc == 0
+
+
+def test_audit_unreadable_file_returns_nonzero_not_clean(tmp_path, capsys):
+    """CLI-level regression: an unreadable profile must exit non-zero
+    (treated as a blocker) and must never print the 'ok, no portability
+    blockers' headline for a file that was never actually inspected."""
+    p = _write(tmp_path, "a.nmconnection", SAMPLE_WIFI)
+    p.chmod(0o000)
+    try:
+        rc = main(["audit", str(tmp_path)])
+    finally:
+        p.chmod(0o644)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "no portability blockers found" not in out
+    assert "could not inspect" in out
+
+
+def test_audit_unreadable_file_json_reports_readable_false(tmp_path, capsys):
+    p = _write(tmp_path, "a.nmconnection", SAMPLE_WIFI)
+    p.chmod(0o000)
+    try:
+        rc = main(["audit", str(tmp_path), "--json"])
+    finally:
+        p.chmod(0o644)
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert rc == 1
+    assert payload[0]["readable"] is False
+    assert payload[0]["has_portability_blockers"] is True
+
+
+def test_fix_unreadable_file_is_skipped_not_silently_empty(tmp_path, capsys):
+    """CLI-level regression for the fix path: an unreadable source file
+    must be reported as skipped (and the command must exit non-zero),
+    never silently produce a portable copy with no changes."""
+    p = _write(tmp_path, "a.nmconnection", SAMPLE_WIFI)
+    p.chmod(0o000)
+    out_dir = tmp_path / "out"
+    try:
+        rc = main(["fix", str(tmp_path), "--out", str(out_dir)])
+    finally:
+        p.chmod(0o644)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "SKIPPED" in out
+    assert not (out_dir / "a.nmconnection").exists()
 
 
 def test_fix_writes_portable_copies(tmp_path, capsys):
@@ -72,8 +120,9 @@ def test_fix_json_output(tmp_path, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     parsed = json.loads(out)
-    assert len(parsed) == 1
-    assert parsed[0]["changes"]
+    assert len(parsed["written"]) == 1
+    assert parsed["written"][0]["changes"]
+    assert parsed["unreadable"] == []
 
 
 def test_version_exits_zero(capsys):

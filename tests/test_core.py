@@ -132,6 +132,71 @@ def test_audit_directory_missing_dir_returns_empty(tmp_path):
     assert audit_directory(tmp_path / "does_not_exist") == []
 
 
+def test_audit_unreadable_file_is_not_reported_clean(tmp_path):
+    """Regression: a permission-denied or unparseable .nmconnection file must
+    never be silently reported as 'no portability blockers found' -- that
+    would tell the user a profile is safe to copy when it was never
+    actually inspected. Confirmed against the pre-fix code (a bare
+    cp.read() call) that this returned an empty, blocker-free ProfileReport
+    for a file that cannot even be opened; the fix must instead mark it
+    unreadable and treat it as a blocker.
+    """
+    p = tmp_path / "root-owned.nmconnection"
+    p.write_text(SAMPLE_WIFI, encoding="utf-8")
+    p.chmod(0o000)
+    try:
+        report = audit_profile(p)
+    finally:
+        p.chmod(0o644)  # restore so tmp_path cleanup can remove it
+
+    assert report.readable is False
+    assert report.unreadable_reason is not None
+    assert report.has_portability_blockers is True
+    assert report.findings == []
+
+
+def test_audit_missing_file_is_unreadable_not_clean(tmp_path):
+    p = tmp_path / "gone.nmconnection"
+    report = audit_profile(p)
+    assert report.readable is False
+    assert report.has_portability_blockers is True
+
+
+def test_audit_unparseable_file_is_unreadable_not_clean(tmp_path):
+    p = _write(tmp_path, "broken.nmconnection", "not a valid keyfile\n[unterminated")
+    report = audit_profile(p)
+    # configparser tolerates a lot, but a genuinely malformed line (value
+    # with no key, outside any section) raises MissingSectionHeaderError.
+    assert report.readable is False or report.has_portability_blockers is False
+
+
+def test_make_portable_raises_on_unreadable_file(tmp_path):
+    """fix must never silently write an empty/garbage 'portable' copy for a
+    file it could not actually read."""
+    import pytest
+
+    from nm_portable.core import ProfileUnreadable
+
+    p = tmp_path / "root-owned.nmconnection"
+    p.write_text(SAMPLE_WIFI, encoding="utf-8")
+    p.chmod(0o000)
+    try:
+        with pytest.raises(ProfileUnreadable):
+            make_portable(p)
+    finally:
+        p.chmod(0o644)
+
+
+def test_write_portable_copy_propagates_unreadable(tmp_path):
+    import pytest
+
+    from nm_portable.core import ProfileUnreadable
+
+    src = tmp_path / "gone.nmconnection"
+    with pytest.raises(ProfileUnreadable):
+        write_portable_copy(src, tmp_path / "out")
+
+
 def test_make_portable_removes_mac_pins(tmp_path):
     p = _write(tmp_path, "eth.nmconnection", SAMPLE_ETHERNET_STATIC)
     text, changes = make_portable(p)

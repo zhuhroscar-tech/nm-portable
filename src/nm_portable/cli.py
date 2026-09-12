@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .core import audit_directory, audit_profile, write_portable_copy
+from .core import ProfileUnreadable, audit_directory, audit_profile, write_portable_copy
 from .style import resolve_style, status_headline
 
 
@@ -57,6 +57,8 @@ def _cmd_audit(args) -> int:
             {
                 "path": str(r.path),
                 "has_portability_blockers": r.has_portability_blockers,
+                "readable": r.readable,
+                "unreadable_reason": r.unreadable_reason,
                 "findings": [{"level": f.level, "field": f.field, "message": f.message} for f in r.findings],
             }
             for r in reports
@@ -68,6 +70,9 @@ def _cmd_audit(args) -> int:
             print(f"No .nmconnection files found at {args.path}")
         for r in reports:
             print(f"\n{r.path}")
+            if not r.readable:
+                print(f"  {status_headline(style, 'warn', f'could not inspect this file: {r.unreadable_reason}')}")
+                continue
             if not r.findings:
                 print(f"  {status_headline(style, 'ok', 'no portability blockers found')}")
             for f in r.findings:
@@ -80,14 +85,19 @@ def _cmd_audit(args) -> int:
 def _cmd_fix(args) -> int:
     paths = _collect_paths(args.path)
     results = []
+    unreadable = []
     for p in paths:
-        dest, changes = write_portable_copy(p, args.out, strip_static_ip=args.strip_static_ip)
+        try:
+            dest, changes = write_portable_copy(p, args.out, strip_static_ip=args.strip_static_ip)
+        except ProfileUnreadable as exc:
+            unreadable.append({"source": str(p), "error": str(exc)})
+            continue
         results.append({"source": str(p), "dest": str(dest), "changes": changes})
 
     if args.json:
-        print(json.dumps(results, indent=2))
+        print(json.dumps({"written": results, "unreadable": unreadable}, indent=2))
     else:
-        if not results:
+        if not results and not unreadable:
             print(f"No .nmconnection files found at {args.path}")
         for r in results:
             print(f"\n{r['source']} -> {r['dest']}")
@@ -95,14 +105,19 @@ def _cmd_fix(args) -> int:
                 print("  (no changes needed)")
             for c in r["changes"]:
                 print(f"  - {c}")
+        for u in unreadable:
+            print(f"\n{u['source']}")
+            print(f"  SKIPPED -- could not inspect this file: {u['error']}")
         print(
             f"\n{len(results)} portable copy(ies) written to {args.out}. "
             "Review before copying into /etc/NetworkManager/system-connections/ "
             "on the destination machine -- this tool never touches that "
             "directory or reloads NetworkManager itself."
         )
+        if unreadable:
+            print(f"{len(unreadable)} file(s) skipped because they could not be read -- see above.")
 
-    return 0
+    return 1 if unreadable else 0
 
 
 def main(argv=None) -> int:

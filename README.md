@@ -87,7 +87,7 @@ pip install nm-portable
 Or the standalone zipapp:
 
 ```bash
-curl -LO https://github.com/zhuhroscar-tech/nm-portable/releases/download/v0.1.0/nm-portable.pyz
+curl -LO https://github.com/zhuhroscar-tech/nm-portable/releases/latest/download/nm-portable.pyz
 python3 nm-portable.pyz --version
 ```
 

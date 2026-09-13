@@ -60,8 +60,8 @@ jobs:
       - name: Build a standalone .pyz (zipapp)
         run: |
           python -m pip install . --target build/pyz_root
+          printf 'from nm_portable.cli import main\nif __name__ == "__main__":\n    raise SystemExit(main())\n' > build/pyz_root/__main__.py
           python -m zipapp build/pyz_root \
-            --main "nm_portable.cli:main" \
             --output dist/nm-portable.pyz \
             --python "/usr/bin/env python3"
       - name: Smoke-test the .pyz on this Linux runner
@@ -71,6 +71,11 @@ jobs:
           printf '[connection]\nid=x\ntype=ethernet\n[ethernet]\nmac-address=AA:AA:AA:AA:AA:AA\n[ipv4]\nmethod=auto\n' > /tmp/sample2/x.nmconnection
           python3 dist/nm-portable.pyz audit /tmp/sample2 --json > /tmp/audit.json || true
           python3 -m json.tool < /tmp/audit.json > /dev/null
+          # Regression check: the .pyz's exit code must reflect the real
+          # command result, not always be 0 (zipapp's --main template
+          # omits sys.exit(), which previously made every .pyz invocation
+          # report success regardless of actual findings/errors).
+          python3 dist/nm-portable.pyz audit /tmp/sample2 > /dev/null; test $? -eq 1
       - name: Generate checksums
         run: |
           cd dist

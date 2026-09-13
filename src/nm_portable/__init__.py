@@ -1,3 +1,3 @@
 """nm-portable: make NetworkManager keyfile connections portable across machines."""
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"

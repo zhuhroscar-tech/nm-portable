@@ -75,7 +75,11 @@ jobs:
           # command result, not always be 0 (zipapp's --main template
           # omits sys.exit(), which previously made every .pyz invocation
           # report success regardless of actual findings/errors).
-          python3 dist/nm-portable.pyz audit /tmp/sample2 > /dev/null; test $? -eq 1
+          set +e
+          python3 dist/nm-portable.pyz audit /tmp/sample2 > /dev/null
+          audit_code=$?
+          set -e
+          test "$audit_code" -eq 1
       - name: Generate checksums
         run: |
           cd dist

@@ -69,6 +69,17 @@ class ProfileUnreadable(RuntimeError):
     """Raised when an .nmconnection file cannot be read or parsed at all."""
 
 
+class WouldOverwriteSource(RuntimeError):
+    """Raised when the requested output path resolves to the same file as
+    the source profile, which would silently overwrite the original --
+    directly contradicting this tool's read-only-for-the-source guarantee.
+    The most common real-world trigger: pointing --out at the very
+    directory being audited/fixed (e.g. --out
+    /etc/NetworkManager/system-connections while auditing that same
+    directory), which previously overwrote the original file in place
+    with no warning."""
+
+
 @dataclass
 class ProfileReport:
     path: Path
@@ -211,9 +222,24 @@ def write_portable_copy(src: Path, dest_dir: Path, strip_static_ip: bool = False
     """Write a portable copy of `src` into `dest_dir` (created if needed),
     returning (dest_path, list[str] of changes). Never writes to `src`
     itself or to a live NetworkManager directory automatically -- the
-    caller chooses `dest_dir` explicitly."""
+    caller chooses `dest_dir` explicitly.
+
+    Raises `WouldOverwriteSource` if `dest_dir` resolves to the same
+    directory as `src` (so the computed destination path is identical to
+    the source file), which would otherwise silently overwrite the
+    original profile -- e.g. running `nm-portable fix
+    /etc/NetworkManager/system-connections --out
+    /etc/NetworkManager/system-connections`, a natural mistake given the
+    tool's own advice to eventually copy output into that directory.
+    """
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_path = dest_dir / src.name
+    if dest_path.resolve() == src.resolve():
+        raise WouldOverwriteSource(
+            f"--out resolves to the same file as the source ({src}); "
+            "refusing to overwrite the original profile in place. Choose "
+            "a different --out directory."
+        )
     text, changes = make_portable(src, strip_static_ip=strip_static_ip)
     dest_path.write_text(text, encoding="utf-8")
     try:

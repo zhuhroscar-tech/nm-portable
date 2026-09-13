@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .core import ProfileUnreadable, audit_directory, audit_profile, write_portable_copy
+from .core import ProfileUnreadable, WouldOverwriteSource, audit_directory, audit_profile, write_portable_copy
 from .style import resolve_style, status_headline
 
 
@@ -86,18 +86,22 @@ def _cmd_fix(args) -> int:
     paths = _collect_paths(args.path)
     results = []
     unreadable = []
+    refused = []
     for p in paths:
         try:
             dest, changes = write_portable_copy(p, args.out, strip_static_ip=args.strip_static_ip)
         except ProfileUnreadable as exc:
             unreadable.append({"source": str(p), "error": str(exc)})
             continue
+        except WouldOverwriteSource as exc:
+            refused.append({"source": str(p), "error": str(exc)})
+            continue
         results.append({"source": str(p), "dest": str(dest), "changes": changes})
 
     if args.json:
-        print(json.dumps({"written": results, "unreadable": unreadable}, indent=2))
+        print(json.dumps({"written": results, "unreadable": unreadable, "refused": refused}, indent=2))
     else:
-        if not results and not unreadable:
+        if not results and not unreadable and not refused:
             print(f"No .nmconnection files found at {args.path}")
         for r in results:
             print(f"\n{r['source']} -> {r['dest']}")
@@ -108,6 +112,9 @@ def _cmd_fix(args) -> int:
         for u in unreadable:
             print(f"\n{u['source']}")
             print(f"  SKIPPED -- could not inspect this file: {u['error']}")
+        for r in refused:
+            print(f"\n{r['source']}")
+            print(f"  REFUSED -- {r['error']}")
         print(
             f"\n{len(results)} portable copy(ies) written to {args.out}. "
             "Review before copying into /etc/NetworkManager/system-connections/ "
@@ -116,8 +123,13 @@ def _cmd_fix(args) -> int:
         )
         if unreadable:
             print(f"{len(unreadable)} file(s) skipped because they could not be read -- see above.")
+        if refused:
+            print(
+                f"{len(refused)} file(s) refused because --out would overwrite the "
+                "original -- see above. Choose a different --out directory."
+            )
 
-    return 1 if unreadable else 0
+    return 1 if (unreadable or refused) else 0
 
 
 def main(argv=None) -> int:

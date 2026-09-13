@@ -227,6 +227,42 @@ def test_make_portable_strips_static_ip_when_requested(tmp_path):
     assert any("ipv4" in c and "static" in c.lower() for c in changes)
 
 
+def test_write_portable_copy_refuses_to_overwrite_source(tmp_path):
+    """Regression test: previously, running `nm-portable fix DIR --out DIR`
+    (out == the directory being scanned -- a natural mistake given the
+    tool's own printed advice to eventually copy output into
+    /etc/NetworkManager/system-connections/) silently overwrote the
+    original .nmconnection file with its own stripped-down rewrite,
+    destroying the source. write_portable_copy must now refuse instead."""
+    import pytest
+
+    from nm_portable.core import WouldOverwriteSource
+
+    src = _write(tmp_path, "eth.nmconnection", SAMPLE_ETHERNET_STATIC)
+    original_text = src.read_text()
+
+    with pytest.raises(WouldOverwriteSource):
+        write_portable_copy(src, tmp_path)
+
+    # The original file must be completely untouched.
+    assert src.read_text() == original_text
+
+
+def test_write_portable_copy_refuses_via_dot_relative_out(tmp_path, monkeypatch):
+    """Same collision, reached via a relative --out ('.') that resolves to
+    the same directory as an absolute source path -- exercises the
+    .resolve() comparison rather than a naive string/identity check."""
+    import pytest
+
+    from nm_portable.core import WouldOverwriteSource
+
+    src = _write(tmp_path, "wifi.nmconnection", SAMPLE_WIFI)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(WouldOverwriteSource):
+        write_portable_copy(src, Path("."))
+
+
 def test_write_portable_copy_creates_output_dir(tmp_path):
     src = _write(tmp_path, "eth.nmconnection", SAMPLE_ETHERNET_STATIC)
     out_dir = tmp_path / "out"

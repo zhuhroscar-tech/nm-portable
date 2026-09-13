@@ -103,6 +103,57 @@ def test_fix_unreadable_file_is_skipped_not_silently_empty(tmp_path, capsys):
     assert not (out_dir / "a.nmconnection").exists()
 
 
+def test_fix_refuses_to_overwrite_source_text_output(tmp_path, capsys):
+    """CLI-level regression for the fix path's safety guard: when --out
+    resolves to the same directory as the source, core.write_portable_copy
+    raises WouldOverwriteSource. The CLI must report this as REFUSED (not
+    SKIPPED, not silently succeed), exit non-zero, and must never write to
+    the source file -- this is the guard that stops a natural mistake like
+    `nm-portable fix system-connections --out system-connections` from
+    clobbering a live NetworkManager profile."""
+    src_dir = tmp_path / "profiles"
+    src_dir.mkdir()
+    p = _write(src_dir, "a.nmconnection", SAMPLE_WIFI)
+    original_text = p.read_text()
+
+    rc = main(["fix", str(src_dir), "--out", str(src_dir)])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "REFUSED" in out
+    assert "SKIPPED" not in out
+    assert p.read_text() == original_text
+
+
+def test_fix_refuses_to_overwrite_source_json_output(tmp_path, capsys):
+    """Same guard, JSON mode: the refusal must appear in the 'refused'
+    list (not 'written', not 'unreadable'), and the command must still
+    exit non-zero so scripted callers can detect it without parsing text."""
+    src_dir = tmp_path / "profiles"
+    src_dir.mkdir()
+    _write(src_dir, "a.nmconnection", SAMPLE_WIFI)
+
+    rc = main(["fix", str(src_dir), "--out", str(src_dir), "--json"])
+    out = capsys.readouterr().out
+    parsed = json.loads(out)
+
+    assert rc == 1
+    assert parsed["written"] == []
+    assert parsed["unreadable"] == []
+    assert len(parsed["refused"]) == 1
+    assert "overwrite" in parsed["refused"][0]["error"]
+
+
+def test_audit_no_files_found_message(tmp_path, capsys):
+    """When --path is an empty directory, audit must say so plainly
+    instead of silently printing nothing (a user could otherwise mistake
+    an empty result for 'no portability blockers found')."""
+    rc = main(["audit", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "No .nmconnection files found" in out
+
+
 def test_fix_writes_portable_copies(tmp_path, capsys):
     _write(tmp_path, "a.nmconnection", SAMPLE_WIFI)
     out_dir = tmp_path / "out"

@@ -53,7 +53,30 @@ _INTERFACE_NAME_FIELDS = {
     ("connection", "interface-name"),
 }
 _STATIC_IP_PREFIXES = {"ipv4", "ipv6"}
-_SECRET_HINT_KEYS = {"psk", "password", "wep-key0", "wep-key1", "wep-key2", "wep-key3", "private-key-password"}
+# Keyfile field names that hold a plaintext secret per NetworkManager's own
+# settings spec (nm-settings(5)/nm-settings-keyfile(5)): every one of these
+# has a matching "<key>-flags" property, and a flags value of 0 (the
+# default, "NM owned") means NetworkManager itself stores the value in this
+# keyfile in plaintext. This list previously covered only WEP/WPA-PSK and
+# the two "private-key-password" fields, silently missing SIM PIN/PUK
+# codes (gsm/cdma), the 802-1x pin/password-raw/phase2 fields, and legacy
+# Cisco LEAP -- all real plaintext secrets that a "fix"/portability audit
+# must flag exactly like the fields already covered, since copying them to
+# another machine or into a bug report carries the same exposure risk.
+_SECRET_HINT_KEYS = {
+    "psk", "password", "password-raw",
+    "wep-key0", "wep-key1", "wep-key2", "wep-key3",
+    "private-key-password", "phase2-private-key-password",
+    "leap-password", "wake-on-lan-password",
+    "pin", "pin2", "puk", "puk2",
+}
+# The [vpn-secrets] section is a special case in the keyfile spec: VPN
+# plugins each define their own dynamic secret key names (openvpn's
+# "password"/"cipher-key", openconnect's "cookie", wireguard's peer
+# preshared keys, etc.), so no fixed key-name list can enumerate them.
+# Per nm-settings-keyfile(5), every key under this section is always a
+# secret regardless of its name.
+_ALWAYS_SECRET_SECTIONS = {"vpn-secrets"}
 
 _MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
 
@@ -166,6 +189,12 @@ def audit_profile(path: Path) -> ProfileReport:
                 findings.append(Finding(
                     "info", f"{section}.{key}",
                     "Plaintext secret present in this file -- handle the copy securely "
+                    "(this tool never prints secret values).",
+                ))
+            elif section in _ALWAYS_SECRET_SECTIONS and value.strip() and not value.strip().startswith("$"):
+                findings.append(Finding(
+                    "info", f"{section}.{key}",
+                    "Plaintext VPN secret present in this file -- handle the copy securely "
                     "(this tool never prints secret values).",
                 ))
 

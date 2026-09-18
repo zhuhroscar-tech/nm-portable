@@ -31,7 +31,7 @@ nm-portable fix ./connections --out ./portable
 nm-portable fix ./connections --out ./portable-auto --strip-static-ip
 ```
 
-`audit` reads only. It reports MAC-address and interface-name pins, flags static IP configuration for review, and notes recognized plaintext-secret fields without displaying their values.
+`audit` reads only. It reports MAC-address and interface-name pins, flags static IP configuration for review, and notes recognized plaintext-secret fields (Wi-Fi PSK/WEP keys, 802.1x/EAP passwords and PINs, legacy Cisco LEAP credentials, mobile-broadband SIM PIN/PUK codes, and any key under a VPN plugin's `[vpn-secrets]` section) without displaying their values.
 
 `fix` removes supported MAC and interface-name fields, including cloned-MAC settings. Static IP settings remain unless `--strip-static-ip` is supplied; that option resets manual IPv4/IPv6 sections to `auto` and removes their other settings. Review the resulting file rather than assuming every removed setting was unwanted.
 

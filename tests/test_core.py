@@ -114,6 +114,118 @@ def test_audit_flags_plaintext_secret(tmp_path):
     assert not any("supersecretpassword" in f.message for f in report.findings)
 
 
+# Regression: these plaintext-secret field types were previously NOT in
+# _SECRET_HINT_KEYS / had no vpn-secrets-section handling at all, so a
+# profile carrying ONLY one of these secrets (no MAC/interface-name pin,
+# no psk/password/wep-key) would be reported as having "no portability
+# blockers found" -- a false-clean verdict for a file that still contains
+# a real plaintext secret. Each sample below carries exactly one of these
+# fields and nothing else that the pre-existing checks would catch.
+SAMPLE_GSM_PIN = """[connection]
+id=MobileBroadband
+uuid=22222222-3333-4444-5555-666666666666
+type=gsm
+
+[gsm]
+apn=internet
+pin=1234
+
+[ipv4]
+method=auto
+"""
+
+SAMPLE_8021X_PIN = """[connection]
+id=CorpEAP-SIM
+uuid=33333333-4444-5555-6666-777777777777
+type=wifi
+
+[wifi]
+mode=infrastructure
+ssid=CorpWLAN
+
+[wifi-security]
+key-mgmt=wpa-eap
+
+[802-1x]
+eap=sim;
+pin=8877
+
+[ipv4]
+method=auto
+"""
+
+SAMPLE_LEAP = """[connection]
+id=OldCiscoLEAP
+uuid=44444444-5555-6666-7777-888888888888
+type=wifi
+
+[wifi]
+mode=infrastructure
+ssid=OldCiscoAP
+
+[wifi-security]
+key-mgmt=ieee8021x
+auth-alg=leap
+leap-username=bob
+leap-password=hunter2
+
+[ipv4]
+method=auto
+"""
+
+SAMPLE_VPN_SECRET = """[connection]
+id=CorpVPN
+uuid=55555555-6666-7777-8888-999999999999
+type=vpn
+
+[vpn]
+service-type=org.freedesktop.NetworkManager.openvpn
+username=alice
+
+[vpn-secrets]
+cookie=vpnpassword123
+
+[ipv4]
+method=auto
+"""
+
+
+def test_audit_flags_gsm_sim_pin_as_secret(tmp_path):
+    p = _write(tmp_path, "gsm.nmconnection", SAMPLE_GSM_PIN)
+    report = audit_profile(p)
+    assert any(f.field == "gsm.pin" for f in report.findings), (
+        "gsm.pin is a plaintext SIM PIN per nm-settings(5); a profile "
+        "with only this field must not be reported as free of blockers"
+    )
+    assert not any("1234" in f.message for f in report.findings)
+
+
+def test_audit_flags_8021x_pin_as_secret(tmp_path):
+    p = _write(tmp_path, "eap-sim.nmconnection", SAMPLE_8021X_PIN)
+    report = audit_profile(p)
+    assert any(f.field == "802-1x.pin" for f in report.findings)
+    assert not any("8877" in f.message for f in report.findings)
+
+
+def test_audit_flags_leap_password_as_secret(tmp_path):
+    p = _write(tmp_path, "leap.nmconnection", SAMPLE_LEAP)
+    report = audit_profile(p)
+    assert any(f.field == "wifi-security.leap-password" for f in report.findings)
+    assert not any("hunter2" in f.message for f in report.findings)
+
+
+def test_audit_flags_vpn_secrets_section_regardless_of_key_name(tmp_path):
+    p = _write(tmp_path, "vpn.nmconnection", SAMPLE_VPN_SECRET)
+    report = audit_profile(p)
+    assert any(f.field == "vpn-secrets.cookie" for f in report.findings), (
+        "every key under [vpn-secrets] is a secret per nm-settings-keyfile(5), "
+        "regardless of the VPN plugin's own key naming (openconnect's "
+        "'cookie' here is not itself in the generic secret-key-name list, "
+        "so this only passes via the section-based check)"
+    )
+    assert not any("vpnpassword123" in f.message for f in report.findings)
+
+
 def test_audit_clean_profile_has_no_blockers(tmp_path):
     p = _write(tmp_path, "clean.nmconnection", SAMPLE_CLEAN)
     report = audit_profile(p)

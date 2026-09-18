@@ -318,6 +318,43 @@ def test_make_portable_removes_mac_pins(tmp_path):
     assert "mac-address" in p.read_text()
 
 
+def test_make_portable_keeps_cloned_mac_special_values(tmp_path):
+    """Regression test: cloned-mac-address (and its alias
+    assigned-mac-address) supports non-hardware special values --
+    "preserve", "permanent", "random", "stable", "stable-ssid" -- per
+    NetworkManager's own settings spec (nm-settings-nmcli(5)). These are
+    not portability blockers ("random"/"stable" behave identically on
+    any hardware and are often set deliberately for MAC-randomization
+    privacy). A prior version of make_portable() stripped
+    cloned-mac-address unconditionally regardless of its value,
+    silently discarding a user's chosen privacy setting during a
+    migration that had nothing to do with hardware pinning.
+    """
+    sample = (
+        "[connection]\n"
+        "id=RandomizedWifi\n"
+        "uuid=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n"
+        "type=wifi\n\n"
+        "[wifi]\n"
+        "mode=infrastructure\n"
+        "ssid=SomeNetwork\n"
+        "cloned-mac-address=random\n\n"
+        "[ipv4]\n"
+        "method=auto\n\n"
+        "[ipv6]\n"
+        "method=auto\n"
+    )
+    p = _write(tmp_path, "randomized.nmconnection", sample)
+    text, changes = make_portable(p)
+    assert "cloned-mac-address=random" in text
+    assert not any("cloned-mac-address" in c for c in changes)
+    # A literal hardware address in the same field must still be stripped.
+    p2 = _write(tmp_path, "pinned.nmconnection", SAMPLE_ETHERNET_STATIC)
+    text2, changes2 = make_portable(p2)
+    assert "cloned-mac-address" not in text2
+    assert any("cloned-mac-address" in c for c in changes2)
+
+
 def test_make_portable_removes_interface_name(tmp_path):
     p = _write(tmp_path, "wifi.nmconnection", SAMPLE_WIFI)
     text, changes = make_portable(p)

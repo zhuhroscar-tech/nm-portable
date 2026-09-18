@@ -33,7 +33,7 @@ nm-portable fix ./connections --out ./portable-auto --strip-static-ip
 
 `audit` 只读取文件，报告 MAC address 和 interface name 绑定，提示检查静态 IP，并识别部分明文凭据字段，但不显示这些凭据的值。
 
-`fix` 会移除支持的 MAC 和 interface name 字段，包括 cloned-MAC 设置。默认保留静态 IP；指定 `--strip-static-ip` 后，会将 manual IPv4/IPv6 配置改为 `auto`，并移除对应 section 中的其他设置。请检查生成结果，不要假定被移除的设置都不再需要。
+`fix` 会移除支持的 MAC 和 interface name 字段，包括写死的 cloned-MAC 硬件地址。若 `cloned-mac-address` 设置为非硬件的特殊值（`preserve`、`permanent`、`random`、`stable`、`stable-ssid`，均为 NetworkManager 自身配置规范定义），该字段会原样保留——因为它在任何硬件上行为一致，往往是用户为 MAC 随机化隐私特性主动设置的，并非可移植性障碍。默认保留静态 IP；指定 `--strip-static-ip` 后，会将 manual IPv4/IPv6 配置改为 `auto`，并移除对应 section 中的其他设置。请检查生成结果，不要假定被移除的设置都不再需要。
 
 Audit 遇到 warning 级别结果或无法读取的文件时返回 **1**，否则返回 **0**。Fix 遇到无法读取的文件，或因输出路径覆盖源文件而拒绝写入时返回 **1**，否则返回 **0**。空目录返回正常并不代表检查过任何配置。
 

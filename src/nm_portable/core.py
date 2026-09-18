@@ -79,6 +79,18 @@ _SECRET_HINT_KEYS = {
 _ALWAYS_SECRET_SECTIONS = {"vpn-secrets"}
 
 _MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
+# cloned-mac-address (and its D-Bus alias assigned-mac-address) is not
+# always a literal hardware address: NetworkManager's own settings spec
+# (nm-settings-nmcli(5)) defines "preserve", "permanent", "random",
+# "stable", and "stable-ssid" as special string values with no hardware
+# dependency at all -- "random" generates a fresh MAC every connect,
+# "stable" derives one from connection.stable-id and a machine key, and
+# "preserve"/"permanent" explicitly avoid pinning to a specific address.
+# None of these break portability the way a literal MAC does, and
+# "random"/"stable" are commonly set deliberately for privacy. Only a
+# literal hardware address (matched by _MAC_RE) is an actual portability
+# blocker for these fields.
+_CLONED_MAC_SPECIAL_VALUES = {"preserve", "permanent", "random", "stable", "stable-ssid"}
 
 
 @dataclass
@@ -227,8 +239,17 @@ def make_portable(path: Path, strip_static_ip: bool = False) -> tuple:
     for section, key in list(_MAC_FIELDS) + list(_INTERFACE_NAME_FIELDS):
         if cp.has_option(section, key):
             value = cp.get(section, key)
+            stripped = value.strip()
+            if key == "cloned-mac-address" and stripped.lower() in _CLONED_MAC_SPECIAL_VALUES:
+                # Not a hardware pin -- e.g. "random"/"stable" are
+                # deliberate privacy settings that behave identically on
+                # any hardware. Removing the key would silently fall
+                # back to NetworkManager's own default ("preserve" on
+                # modern versions), changing user-chosen behavior for no
+                # portability benefit. Leave it untouched.
+                continue
             cp.remove_option(section, key)
-            changes.append(f"removed {section}.{key} (was: {value.strip()})")
+            changes.append(f"removed {section}.{key} (was: {stripped})")
             if not cp.options(section):
                 cp.remove_section(section)
 

@@ -33,7 +33,7 @@ nm-portable fix ./connections --out ./portable-auto --strip-static-ip
 
 `audit` reads only. It reports MAC-address and interface-name pins, flags static IP configuration for review, and notes recognized plaintext-secret fields (Wi-Fi PSK/WEP keys, 802.1x/EAP passwords and PINs, legacy Cisco LEAP credentials, mobile-broadband SIM PIN/PUK codes, and any key under a VPN plugin's `[vpn-secrets]` section) without displaying their values.
 
-`fix` removes supported MAC and interface-name fields, including cloned-MAC settings. Static IP settings remain unless `--strip-static-ip` is supplied; that option resets manual IPv4/IPv6 sections to `auto` and removes their other settings. Review the resulting file rather than assuming every removed setting was unwanted.
+`fix` removes supported MAC and interface-name fields, including literal cloned-MAC hardware addresses. A `cloned-mac-address` set to a non-hardware special value (`preserve`, `permanent`, `random`, `stable`, `stable-ssid` per NetworkManager's own settings spec) is left untouched, since it behaves identically on any hardware and is often a deliberate MAC-randomization privacy setting rather than a portability blocker. Static IP settings remain unless `--strip-static-ip` is supplied; that option resets manual IPv4/IPv6 sections to `auto` and removes their other settings. Review the resulting file rather than assuming every removed setting was unwanted.
 
 Audit exits **1** for warning-level findings or unreadable profiles, otherwise **0**. Fix exits **1** if files were unreadable or refused because output would overwrite the source, otherwise **0**. An empty directory is not evidence that any profile was checked.
 

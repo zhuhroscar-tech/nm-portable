@@ -1,19 +1,19 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nm-portable"
-version = "0.1.6"
+version = "0.1.7"
 description = "Find and fix NetworkManager .nmconnection profiles pinned to specific hardware, so they can be safely copied to a different machine."
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [{name = "zhuhroscar-tech"}]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: POSIX :: Linux",
-  "License :: OSI Approved :: MIT License",
 ]
 
 [project.scripts]

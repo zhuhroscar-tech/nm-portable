@@ -18,7 +18,7 @@ source .venv/bin/activate
 python -m pip install .
 ```
 
-Standalone `.pyz` downloads are also available from [GitHub Releases](https://github.com/zhuhroscar-tech/nm-portable/releases). Verify against that release's `SHA256SUMS.txt` before running one.
+Standalone `nm-portable.pyz` downloads are also available from [GitHub Releases](https://github.com/zhuhroscar-tech/nm-portable/releases). Verify against that release's `SHA256SUMS.txt` before running one.
 
 ## Usage
 
@@ -50,4 +50,4 @@ python -m pip install -e '.[dev]'
 python -m pytest -v
 ```
 
-[Demo video](docs/demo.mp4) · [MIT license](LICENSE).
+[Demo video](docs/demo.mp4) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE).

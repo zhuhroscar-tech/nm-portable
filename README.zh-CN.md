@@ -18,7 +18,7 @@ source .venv/bin/activate
 python -m pip install .
 ```
 
-[GitHub Releases](https://github.com/zhuhroscar-tech/nm-portable/releases) 也提供独立 `.pyz`。运行前请核对同一 release 中的 `SHA256SUMS.txt`。
+[GitHub Releases](https://github.com/zhuhroscar-tech/nm-portable/releases) 也提供独立 `nm-portable.pyz`。运行前请核对同一 release 中的 `SHA256SUMS.txt`。
 
 ## 使用
 
@@ -50,4 +50,4 @@ python -m pip install -e '.[dev]'
 python -m pytest -v
 ```
 
-[演示视频](docs/demo.mp4) · [MIT 许可证](LICENSE)。
+[演示视频](docs/demo.mp4) · [更新日志](CHANGELOG.md) · [MIT 许可证](LICENSE)。

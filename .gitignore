@@ -10,3 +10,5 @@ dist/
 htmlcov/
 dist_ci/
 dist_local/
+dist_*/
+.wheel-smoke-*/

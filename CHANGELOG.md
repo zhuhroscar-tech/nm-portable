@@ -2,6 +2,12 @@
 
 All notable changes to `nm-portable` are documented here.
 
+## v0.1.9 — 2026-09-25
+
+- Made release-tag CI coverage explicit for `v*` tags.
+- Added changelog project metadata so package indexes and built distributions point users at the release history.
+- Ignored local release-build and wheel-smoke directories used during maintainer verification.
+
 ## v0.1.8 — 2026-09-24
 
 - Added release-history documentation and repository-contract coverage so published downloads, checksums, CI, CodeQL, and license links remain visible from the source tree.

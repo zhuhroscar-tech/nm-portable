@@ -48,9 +48,16 @@ def test_changelog_documents_current_release():
     assert "release-history documentation" in changelog
 
 
+def test_package_metadata_links_to_changelog():
+    pyproject = _read("pyproject.toml")
+    assert "[project.urls]" in pyproject
+    assert 'Changelog = "https://github.com/zhuhroscar-tech/nm-portable/blob/main/CHANGELOG.md"' in pyproject
+
+
 def test_ci_and_codeql_cover_mainline_quality_gates():
     ci = _read(".github/workflows/ci.yml")
     codeql = _read(".github/workflows/codeql.yml")
+    assert 'tags: ["v*"]' in ci
     assert "python -m pytest" in ci
     assert "python -m build" in ci
     assert "zipapp" in ci
